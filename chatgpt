@@ -1,0 +1,61 @@
+source -echo -verbose /home/yjq/hardware_project/Low_power_snn/syn/syn_best/scripts/dc_setup.tcl
+
+set power_enable_analysis true
+set_app_var power_analysis_mode time_based
+
+set SYN_DIR /home/yjq/hardware_project/Low_power_snn/syn/syn_best/scripts/results
+set RESULT_FILE /home/yjq/hardware_project/Low_power_snn/sim_netlist_dense_1bit/top_dense_test_1bit/pt_result/report.report_power_top_dense_test_1bit
+#设置结果保存位置
+
+
+# 搜索路径
+set search_path "\
+/mnt/nfs/nas/pdk/UMC40/G-01-LOGIC_MIXED_MODE40N-LP-DSM-UPDATE/IP/G-9LT-LOGIC_MIXED_MODE40N-LP_UMK40LSCLP11BDH-LIBRARY_TAPE_OUT_KIT-Ver.A03_PB/UMK40LSCLP11BDH_A03_TAPEOUTKIT/synopsys/ \
+/mnt/nfs/nas/pdk/UMC40/G-01-LOGIC_MIXED_MODE40N-LP-DSM-UPDATE/IP/G-9LT-LOGIC_MIXED_MODE40N-LP_UMK40LSCLP11BDR-LIBRARY_TAPE_OUT_KIT-Ver.A03_PB/UMK40LSCLP11BDR_A03_TAPEOUTKIT/synopsys/ \
+/mnt/nfs/nas/pdk/UMC40/G-01-LOGIC_MIXED_MODE40N-LP-DSM-UPDATE/IP/G-9LT-LOGIC_MIXED_MODE40N-LP_UMK40LSCLP11BDL-LIBRARY_TAPE_OUT_KIT-Ver.A02_PB/UMK40LSCLP11BDL_A02_TAPEOUTKIT/synopsys/ \
+    /mnt/nfs/nas/pdk/UMC40/G-01-LOGIC_MIXED_MODE40N-LP-DSM-UPDATE/IP/G-9LT-LOGIC_MIXED_MODE40N-LP_UMK40GIOLP25MVIRFS-LIBRARY_TAPE_OUT_KIT-Ver.C03_PB/UMK40GIOLP25MVIRFS_C03_TAPEOUTKIT/synopsys/ \
+    /home/yjq/hardware_project/Low_power_snn/syn/library/ \
+    /home/yjq/hardware_project/Low_power_snn/syn/syn_best/ \
+    /home/yjq/hardware_project/Low_power_snn/rtl_new/ \
+    /home/yjq/hardware_project/Low_power_snn/sim_netlist/"
+
+set LIB_WC_FILE   "uk40lsclp11bdh_099c125_wc.db \ uk40lsclp11bdr_099c125_wc.db \ uk40lsclp11bdl_099c125_ss.db"
+set LIB_WC_NAME   "uk40lsclp11bdh_099c125_wc.db:uk40lsclp11bdh_099c125_wc"
+set LIB_MEM_WC_FILE "SHLL40_1024X17X1CM8_ss0p99v125c.db \
+                                                 SHLL40_1024X21X1CM8_ss0p99v125c.db \
+                                                 SHLL40_1024X33X1CM8_ss0p99v125c.db \
+                                                 SYLL40_1024X2X1CM8_ss0p99v125c.db \
+                                                 SYLL40_1024X64X1CM4_ss0p99v125c.db \
+                                                 SHLL40_512X10X1CM8_ss0p99v125c.db"
+
+set LIB_IO_WC_FILE  "uk40giolp25mvirfs_297c125_wc.db"
+
+set link_library   "* $LIB_WC_FILE $LIB_MEM_WC_FILE $LIB_IO_WC_FILE" 
+
+
+read_verilog "/home/yjq/hardware_project/Low_power_snn/syn/syn_best/scripts/results/snn_top_iopad.mapped.v"
+current_design "snn_top_iopad"
+link_design -verbose
+
+#读取综合结果
+read_sdc  ${SYN_DIR}/${DCRM_FINAL_SDC_OUTPUT_FILE}
+read_parasitics ${SYN_DIR}/${DCRM_FINAL_SPF_OUTPUT_FILE}
+
+check_timing -verbose > ${REPORTS_DIR}/${PTRM_CHECK_TIMING_REPORT}
+update_timing
+report_timing -path_type full -delay_type max -max_path 5 > /home/yjq/hardware_project/Low_power_snn/syn/syn_best/pt_result/${PTRM_FULL_PATH_MAX_REPORT}
+report_timing -path_type full -delay_type min -max_path 5 > ${REPORTS_DIR}/${PTRM_FULL_PATH_MIN_REPORT}
+
+# 读取vcd文件（在tb中加入语句产生），time的单位为ns
+read_vcd -zero_delay /mnt/nfs/nas/pdk/yjq/top_dense_test_1bit.vcd -strip_path top_dense_test_1bit/u_snn_top_iopad -time {410.305 425.765}
+
+set power_limit_extrapolation_range true
+set power_use_ccsp_pin_capacitance false
+
+redirect -file $RESULT_FILE {report_power -hierarchy}   
+
+check_power -verbose > /home/yjq/hardware_project/Low_power_snn/syn/syn_best/pt_result/${PTRM_CHECK_POWER_REPORT}
+update_power
+report_power -hierarchy > /home/yjq/hardware_project/Low_power_snn/syn/syn_best/pt_result/${PTRM_POWER_REPORT}
+
+# save_session -name /home/yjq/hardware_project/Low_power_snn/syn/syn_best/pt_result/${PTRM_SESSION}
